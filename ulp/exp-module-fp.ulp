@@ -2,6 +2,22 @@
         "Usage: RUN exp-module-fp.ulp"
         "<author>Author: agwn</author>"
 
+// procedure
+// 1. get eagle files for module
+// 2. turn into a project by creating an eagle.epf file in the dir (empty is ok)
+// 3. add the attribute 'EXP2MODFP' to all headers that should be "exported to the module footprint"
+// 4. add the attribute 'EXP2MODMECMNT' to all mechanical mounting points to exported
+// 5. open the project and run this script on the board. the script will create a module_fp.scr
+// 6. open a library to import the module footprint into
+// 7. create a new footprint for the module
+// 8. source the exported script 'scr module_fp' or just 'scr' and search for it
+// 9. cleanup the import to remove things like random text on layers
+// 10. optional: create a new symbol with the same (or less) pins than were exported
+// 11. open an existing device or create a new one and using symbol for the module
+// 12. add the footprint to the device, connect the pins and save the library
+// 13. use the new module as a device in a new pcb! :)
+
+
 real    GridDist = 50.0;
 enum    {unitINCH, unitMIL, unitMM, unitMIC};
 string  h, cmd = "";
