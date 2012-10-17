@@ -1,0 +1,12 @@
+#usage "Tests something.\n"
+        "Usage: RUN test2.ulp"
+
+// Definitions:
+// Statements:
+if (board) board(B)
+{
+  output("sample") {
+    B.elements(E) printf("Element: %s\n", E.name);
+    B.signals(S)  printf("Signal: %s\n", S.name);
+  }
+}

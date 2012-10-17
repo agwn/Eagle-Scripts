@@ -1,0 +1,15 @@
+#usage "Add the characters in the word 'Hello'\n"
+       "Usage: RUN sample.ulp"
+// Definitions:
+string hello = "Hello";
+int count(string s)
+{
+  int c = 0;
+  for (int i = 0; s[i]; ++i)
+    c += s[i];
+  return c;
+}
+// Statements:
+output("sample") {
+  printf("Count is: %d\n", count(hello));
+}
