@@ -46,7 +46,8 @@ string get_project_path()
   return p;
 }
 
-real u2unit(int u) {
+real u2unit(int u)
+{
   if (unit == unitMIL)
     return u2mil(u);
   if (unit == unitMM)
@@ -57,7 +58,8 @@ real u2unit(int u) {
     return u2mic(u);
 }
 
-string getPadShape(int s) {
+string getPadShape(int s)
+{
   if (s == PAD_SHAPE_SQUARE)
     return "Square";
   if (s == PAD_SHAPE_ROUND)
@@ -70,7 +72,8 @@ string getPadShape(int s) {
     return "Offset";
 }
 
-real snap(int n) {  // returns next grid point
+real snap(int n) // returns next grid point
+{
   return round(u2unit(n) / GridDist)   * GridDist;
 }
 
@@ -100,26 +103,23 @@ void Move(int Layer)
 
 void export_brd_outline (void)
 {
+  // TODO: get the curves right, remove diagonal hack
+
   board(B) {
-    // CHANGE LAYER N
-    // CHANGE WIDTH X
-    // WIRE ['signal_name'] [width] [ROUND | FLAT] (x1 y1) [curve | @radius] (x2 y2)
-    
-    // set wire bend to straight lines
+    // set wire bend to straight lines HACK!
     //cmd += "SET WIRE_BEND 6\n";
     cmd += "SET WIRE_BEND 2\n";
-    // TODO: get the curves right, remove diagonal hack
 
-    h = "";
-    sprintf(h, "CHANGE LAYER %d\n", LAYER_DIMENSION);
-    cmd += h;
     B.wires(W) {
       if (W.layer == LAYER_DIMENSION) {
         h = "";
-        sprintf(h, "CHANGE WIDTH %3.2f\n", u2unit(W.width));
+        sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
+            W.layer, u2unit(W.width));
         cmd += h;
+
         h = "";
-        sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n", u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
+        sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
+            u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
         cmd += h;
       }
     }
@@ -127,37 +127,45 @@ void export_brd_outline (void)
 }
 
 
+
 void export_brd_text(void)
 {
   board(B) {
-    h = "";
-    sprintf(h, "CHANGE LAYER %d\n", LAYER_TPLACE);
-    cmd += h;
     B.texts(T) {
-      if (T.layer == LAYER_TPLACE) {
+      if ((T.layer == LAYER_TPLACE) || (T.layer == LAYER_BPLACE)) {
         h = "";
-        sprintf(h, "CHANGE SIZE %3.2f\n", u2unit(T.size));
+        sprintf(h, "CHANGE LAYER %d\nCHANGE SIZE %3.2f\n",
+            T.layer, u2unit(T.size));
         cmd += h;
 
         h = "";
-        sprintf(h, "TEXT '%s' R%2.1f (%3.3f %3.3f)\n", T.value, T.angle, u2unit(T.x), u2unit(T.y));
+        if (T.layer == LAYER_BPLACE) { // mirror the text for bottom layer
+          sprintf(h, "TEXT '%s' MR%2.1f (%3.3f %3.3f)\n",
+              T.value, T.angle, u2unit(T.x), u2unit(T.y));
+        } else {
+          sprintf(h, "TEXT '%s' R%2.1f (%3.3f %3.3f)\n",
+              T.value, T.angle, u2unit(T.x), u2unit(T.y));
+        }
         cmd += h;
       }
-    }
-    h = "";
-    sprintf(h, "CHANGE LAYER %d\n", LAYER_BPLACE);
-    cmd += h;
 
-    B.texts(T) {
-      if (T.layer == LAYER_BPLACE) {
-        h = "";
-        sprintf(h, "CHANGE SIZE %3.2f\n", u2unit(T.size));
-        cmd += h;
-
-        h = "";
-        sprintf(h, "TEXT '%s' MR%2.1f (%3.3f %3.3f)\n", T.value, T.angle, u2unit(T.x), u2unit(T.y));
-        cmd += h;
-      }
+      // dont uncomment this unless you actually understand what it does
+//      if ((T.layer == LAYER_TDOCU) || (T.layer == LAYER_BDOCU)) {
+//        h = "";
+//        sprintf(h, "CHANGE LAYER %d\nCHANGE SIZE %3.2f\n",
+//            T.layer, u2unit(T.size));
+//        cmd += h;
+//
+//        h = "";
+//        if (T.layer == LAYER_BDOCU) { // mirror the text for bottom layer
+//          sprintf(h, "TEXT '%s' MR%2.1f (%3.3f %3.3f)\n",
+//              T.value, T.angle, u2unit(T.x), u2unit(T.y));
+//        } else {
+//          sprintf(h, "TEXT '%s' R%2.1f (%3.3f %3.3f)\n",
+//              T.value, T.angle, u2unit(T.x), u2unit(T.y));
+//        }
+//        cmd += h;
+//      }
     }
   }
 }
@@ -169,29 +177,16 @@ void export_brd_wires(void)
     // set wire bend to straight lines
     cmd += "SET WIRE_BEND 2\n";
 
-    h = "";
-    sprintf(h, "CHANGE LAYER %d\n", LAYER_TPLACE);
-    cmd += h;
     B.wires(W) {
-      if (W.layer == LAYER_TPLACE) {
+      if ((W.layer == LAYER_TPLACE) || (W.layer == LAYER_BPLACE)) {
         h = "";
-        sprintf(h, "CHANGE WIDTH %3.2f\n", u2unit(W.width));
+        sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
+            W.layer, u2unit(W.width));
         cmd += h;
+
         h = "";
-        sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n", u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
-        cmd += h;
-      }
-    }
-    h = "";
-    sprintf(h, "CHANGE LAYER %d\n", LAYER_BPLACE);
-    cmd += h;
-    B.wires(W) {
-      if (W.layer == LAYER_BPLACE) {
-        h = "";
-        sprintf(h, "CHANGE WIDTH %3.2f\n", u2unit(W.width));
-        cmd += h;
-        h = "";
-        sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n", u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
+        sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
+            u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
         cmd += h;
       }
     }
@@ -201,18 +196,47 @@ void export_brd_wires(void)
 
 void export_brd_pads(void)
 {
+  // component pads
   board(B) {
     B.elements(E) {
-      if (E.attribute["EXP2MODFP"]) {
-        Status = "Element: "+E.name; dlgRedisplay();
+      // can sperate out these later if wanted
+      if ((E.attribute["EXP2MODFP"]) || (E.attribute["EXP2MODMECMNT"])) {
+        // extract all through hole contacts 
         E.package.contacts(C) {
           if (C.pad) {
             h = "";
-            sprintf(h, "PAD %f %s R%3.2f '%s$%s' (%3.3f %3.3f)\n",
+            sprintf(h, "CHANGE DRILL %f\nPAD %f %s R%3.2f '%s$%s' (%3.3f %3.3f)\n",
+                u2unit(C.pad.drill),
                 u2unit(C.pad.diameter[LAYER_TOP]), getPadShape(C.pad.shape[LAYER_TOP]),
                 C.pad.angle, E.name, C.name, u2unit(C.pad.x), u2unit(C.pad.y));
             cmd += h;
           }
+        }
+        E.package.holes(H) {
+          // drill holes
+            h = "";
+            sprintf(h, "HOLE %f (%3.3f %3.3f)",
+                u2unit(H.drill), u2unit(H.x), u2unit(H.y));
+            cmd += h;
+        }
+        E.package.circles(C) {
+          // draw circle
+          h = "";
+          sprintf(h, "CHANGE LAYER %d\nCIRCLE %f (%f %f) (%f %f)\n",
+              C.layer, u2unit(C.width),
+              u2unit(C.x), u2unit(C.y), u2unit(C.x + C.radius), u2unit(C.y));
+          cmd += h;
+        }
+        E.package.rectangles(R) {
+          // draw rectangles
+          h = "";
+          sprintf(h, "CHANGE LAYER %d\nRECT R%f (%f %f) (%f %f)\n",
+              R.layer, u2unit(R.angle),
+              u2unit(R.x1), u2unit(R.y1), u2unit(R.x2), u2unit(R.y2));
+          cmd += h;
+        }
+        E.package.polygons(P) {
+          // draw polygons
         }
       }
     }
@@ -223,20 +247,11 @@ void export_brd_pads(void)
 void export_brd_holes(void)
 {
   board(B) {
-    //cmd += "\n// Mechanical pads/holes\n";
-    B.elements(E) {
-      if (E.attribute["EXP2MODMECMNT"]) {
-        Status = "Element: "+E.name; dlgRedisplay();
-        E.package.contacts(C) {
-          if (C.pad) {
-            h = "";
-            sprintf(h, "PAD %f %s R%3.2f '%s' (%3.3f %3.3f)\n",
-                u2unit(C.pad.diameter[LAYER_TOP]), getPadShape(C.pad.shape[LAYER_TOP]),
-                C.pad.angle, E.name, u2unit(C.pad.x), u2unit(C.pad.y));
-            cmd += h;
-          }
-        }
-      }
+    B.holes(H) {
+      h = "";
+            sprintf(h, "CHANGE DRILL %f\nHOLE (%3.3f %3.3f)\n",
+          u2unit(H.drill), u2unit(H.x), u2unit(H.y));
+      cmd += h;
     }
   }
 }
@@ -273,37 +288,57 @@ void Export_to_File (void)
     // Export all tagged connectors/headers
     export_brd_pads();
 
-    // Export all tagged mechanical connectors
+    // Export all drill holes
     export_brd_holes();
     
     // Export documentation only for exported parts
     // Note: should probably do this when extracting the parts
     //cmd += "\n// TODO: Export documentation for pins/mounts\n";
   }
-    cmd += "GRID LAST\n";
+  cmd += "GRID LAST\n";
 }
 
 
 
 //---- main ----------------------------------------------------------------------
 
-if (!board) {
-   dlgMessageBox(usage + "<hr><b>ERROR: No board!</b><p>\nThis program can only work in the board editor.");
-   exit(1);
-   }
+string fileName;
 
-dlgDialog("Export Module Footprint Data") {
+if (!board) {
+  dlgMessageBox(usage + "<hr><b>ERROR: No board!</b><p>\nThis program can only work in the board editor.");
+  exit(1);
+}
+
+dlgDialog("Export Module Footprint") {
+  dlgHBoxLayout {
+    dlgStretch(1);
+    dlgLabel("Export this PCB as a module footprint");
+    dlgStretch(1);
+  }
+  dlgSpacing(10);
+  dlgHBoxLayout {
+    dlgLabel("File &name:");
+    dlgStringEdit(fileName);
+    dlgPushButton("Bro&wse") {
+      fileName = dlgFileSave("Select a file", fileName);
+    }
+  }
+  dlgSpacing(10);
   dlgHBoxLayout {
     dlgSpacing(10);
     dlgVBoxLayout {
-      dlgSpacing(10);
+      dlgStretch(1);
       dlgLabel(Status, 1);
       dlgHBoxLayout {
-        dlgPushButton("+&ExportModuleFP")   {Status = "Busy...";
-          dlgRedisplay();
+        dlgPushButton("+&Export")   {
+          Status = "Busy..."; dlgRedisplay();
           Export_to_File();
-          string dest = dlgFileSave("Save Script File", get_project_path()+"module_fp.scr", "*.scr");
-          if (dest != "") output(dest, "wt") {printf(cmd);}
+          if (fileName) {
+            if (fileName != "") output(fileName, "wt") {printf(cmd);}
+          } else {
+            string dest = dlgFileSave("Save Script File", get_project_path()+"module_fp.scr", "*.scr");
+            if (dest != "") output(dest, "wt") {printf(cmd);}
+          }
           dlgAccept();
         }
         dlgPushButton("-&Cancel") exit(0);
