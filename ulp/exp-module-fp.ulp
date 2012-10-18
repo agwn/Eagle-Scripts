@@ -18,6 +18,8 @@
 // 13. use the new module as a device in a new pcb! :)
 
 
+// Definitions:
+
 real    GridDist = 50.0;
 enum    {unitINCH, unitMIL, unitMM, unitMIC};
 string  h, cmd = "";
@@ -26,8 +28,14 @@ int     show_script = 1;
 int     Result;
 string  Status = "";
 
+// flags for layer information to be exported
+int exp_Dimension = 1;
+int exp_tPlace = 1;
+int exp_bPlace = 1;
+int exp_tDocu = 0;
+int exp_bDocu = 0;
+int exp_Holes = 1;
 
-// Definitions:
 
 // Statements:
 
@@ -103,41 +111,44 @@ void Move(int Layer)
 
 void export_brd_outline (void)
 {
+  cmd += "# BEGIN: export of board outline\n";
   // TODO: get the curves right, remove diagonal hack
+  if (exp_Dimension) {
+    board(B) {
+      //cmd += "SET WIRE_BEND 6\n";
+      // set wire bend to straight lines HACK!
+      cmd += "SET WIRE_BEND 2\n";
 
-  board(B) {
-    // set wire bend to straight lines HACK!
-    //cmd += "SET WIRE_BEND 6\n";
-    cmd += "SET WIRE_BEND 2\n";
-
-    B.wires(W) {
-      if (W.layer == LAYER_DIMENSION) {
-        h = "";
-        sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
-            W.layer, u2unit(W.width));
-        cmd += h;
-
-        h = "";
-        sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
-            u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
-        cmd += h;
+      B.wires(W) {
+        if (W.layer == LAYER_DIMENSION) {
+          h = "";
+          sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
+              W.layer, u2unit(W.width));
+          cmd += h;
+          h = "";
+          sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
+              u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
+          cmd += h;
+        }
       }
     }
   }
+  cmd += "# END: export of board outline\n\n";
 }
 
 
 
-void export_brd_text(void)
+void export_brd_labels(void)
 {
+  cmd += "# BEGIN: export of labels\n";
   board(B) {
     B.texts(T) {
-      if ((T.layer == LAYER_TPLACE) || (T.layer == LAYER_BPLACE)) {
+      // labeling on the standard (Place) layers
+      if ((exp_tPlace && (T.layer == LAYER_TPLACE)) || (exp_bPlace && (T.layer == LAYER_BPLACE))) {
         h = "";
         sprintf(h, "CHANGE LAYER %d\nCHANGE SIZE %3.2f\n",
             T.layer, u2unit(T.size));
         cmd += h;
-
         h = "";
         if (T.layer == LAYER_BPLACE) { // mirror the text for bottom layer
           sprintf(h, "TEXT '%s' MR%2.1f (%3.3f %3.3f)\n",
@@ -149,36 +160,29 @@ void export_brd_text(void)
         cmd += h;
       }
 
-      // dont uncomment this unless you actually understand what it does
-//      if ((T.layer == LAYER_TDOCU) || (T.layer == LAYER_BDOCU)) {
-//        h = "";
-//        sprintf(h, "CHANGE LAYER %d\nCHANGE SIZE %3.2f\n",
-//            T.layer, u2unit(T.size));
-//        cmd += h;
-//
-//        h = "";
-//        if (T.layer == LAYER_BDOCU) { // mirror the text for bottom layer
-//          sprintf(h, "TEXT '%s' MR%2.1f (%3.3f %3.3f)\n",
-//              T.value, T.angle, u2unit(T.x), u2unit(T.y));
-//        } else {
-//          sprintf(h, "TEXT '%s' R%2.1f (%3.3f %3.3f)\n",
-//              T.value, T.angle, u2unit(T.x), u2unit(T.y));
-//        }
-//        cmd += h;
-//      }
+      // labeling on the documentation layers
+      if ((exp_tDocu && (T.layer == LAYER_TDOCU)) || (exp_bDocu && (T.layer == LAYER_BDOCU))) {
+        h = "";
+        sprintf(h, "CHANGE LAYER %d\nCHANGE SIZE %3.2f\n",
+            T.layer, u2unit(T.size));
+        cmd += h;
+        h = "";
+        if (T.layer == LAYER_BDOCU) { // mirror the text for bottom layer
+          sprintf(h, "TEXT '%s' MR%2.1f (%3.3f %3.3f)\n",
+              T.value, T.angle, u2unit(T.x), u2unit(T.y));
+        } else {
+          sprintf(h, "TEXT '%s' R%2.1f (%3.3f %3.3f)\n",
+              T.value, T.angle, u2unit(T.x), u2unit(T.y));
+        }
+        cmd += h;
+      }
     }
-  }
-}
 
-
-void export_brd_wires(void)
-{
-  board(B) {
     // set wire bend to straight lines
     cmd += "SET WIRE_BEND 2\n";
-
     B.wires(W) {
-      if ((W.layer == LAYER_TPLACE) || (W.layer == LAYER_BPLACE)) {
+      // labeling using wires
+      if ((exp_tPlace && (W.layer == LAYER_TPLACE)) || (exp_bPlace && (W.layer == LAYER_BPLACE))) {
         h = "";
         sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
             W.layer, u2unit(W.width));
@@ -191,12 +195,14 @@ void export_brd_wires(void)
       }
     }
   }
+  cmd += "# END: export of labels\n\n";
 }
 
 
-void export_brd_pads(void)
+
+void export_brd_components(void)
 {
-  // component pads
+  cmd += "# BEGIN: export of components\n";
   board(B) {
     B.elements(E) {
       // can sperate out these later if wanted
@@ -241,24 +247,30 @@ void export_brd_pads(void)
       }
     }
   }
+  cmd += "# END: export of components\n\n";
 }
 
 
 void export_brd_holes(void)
 {
-  board(B) {
-    B.holes(H) {
-      h = "";
-            sprintf(h, "CHANGE DRILL %f\nHOLE (%3.3f %3.3f)\n",
-          u2unit(H.drill), u2unit(H.x), u2unit(H.y));
-      cmd += h;
+  cmd += "# BEGIN: export of other drill holes\n";
+  if (exp_Holes) {
+    board(B) {
+      B.holes(H) {
+        h = "";
+        sprintf(h, "CHANGE DRILL %f\nHOLE (%3.3f %3.3f)\n",
+            u2unit(H.drill), u2unit(H.x), u2unit(H.y));
+        cmd += h;
+      }
     }
   }
+  cmd += "# END: export of other drill holes\n\n";
 }
 
 
 void Export_to_File (void)
 {
+  cmd += "# config\n";
   // set import units to be the same as the export units
   if (unit == unitMIL)
     cmd += "GRID MIL\n";
@@ -268,7 +280,8 @@ void Export_to_File (void)
     cmd += "GRID INCH\n";
   if (unit == unitMIC)
     cmd += "GRID MIC\n";
-
+  cmd += "\n";
+  
   board(B) {
     // Remember the active layers:
     int ActiveLayers[];
@@ -279,22 +292,17 @@ void Export_to_File (void)
     // Export board outline
     export_brd_outline();
 
-    // Export board text
-    export_brd_text();
-
-    // Export all wires used for labeling or outlining
-    export_brd_wires();
+    // Export board labels (text and wires) 
+    export_brd_labels();
 
     // Export all tagged connectors/headers
-    export_brd_pads();
+    export_brd_components();
 
-    // Export all drill holes
+    // Export all drill holes (holes placed seperate from any component)
     export_brd_holes();
-    
-    // Export documentation only for exported parts
-    // Note: should probably do this when extracting the parts
-    //cmd += "\n// TODO: Export documentation for pins/mounts\n";
   }
+
+  cmd += "# cleanup\n";
   cmd += "GRID LAST\n";
 }
 
@@ -309,11 +317,26 @@ if (!board) {
   exit(1);
 }
 
-dlgDialog("Export Module Footprint") {
+Result = dlgDialog("Export Module Footprint") {
   dlgHBoxLayout {
     dlgStretch(1);
     dlgLabel("Export this PCB as a module footprint");
     dlgStretch(1);
+  }
+  dlgSpacing(10);
+  dlgHBoxLayout {
+    dlgLabel("Note: Electrical footprint always included. Other layers optional.");
+  }
+  dlgSpacing(10);
+  dlgGroup("Additional layers (other than Pads) to include") {
+    dlgGridLayout  {
+      dlgCell(0, 0, 0, 1) dlgCheckBox("Dimension", exp_Dimension);
+      dlgCell(1, 0) dlgCheckBox("tPlace", exp_tPlace);
+      dlgCell(1, 1) dlgCheckBox("bPlace", exp_bPlace);
+      dlgCell(2, 0) dlgCheckBox("tDocu", exp_tDocu);
+      dlgCell(2, 1) dlgCheckBox("bDocu", exp_bDocu);
+      dlgCell(3, 0, 3, 1) dlgCheckBox("Holes", exp_Holes);
+    }
   }
   dlgSpacing(10);
   dlgHBoxLayout {
@@ -339,26 +362,28 @@ dlgDialog("Export Module Footprint") {
             string dest = dlgFileSave("Save Script File", get_project_path()+"module_fp.scr", "*.scr");
             if (dest != "") output(dest, "wt") {printf(cmd);}
           }
-          dlgAccept();
+          dlgAccept(0);
         }
         dlgPushButton("-&Cancel") exit(0);
       }
-      dlgSpacing(7);
+      dlgSpacing(10);
     }
   }
 };
 
-Result = 1;
+if (Result) exit(Result);
+
 if (show_script) {
   Result = dlgDialog("Shows Exported Data") {
     dlgVBoxLayout {
       dlgLabel("Shows Exported Data");
-      dlgTextEdit(cmd);
+      dlgTextView(cmd);
     }
     dlgHBoxLayout {
-      dlgPushButton("OK") dlgReject();
+      dlgPushButton("+OK") dlgAccept(0);
     }
   };
 }
+
 if (!Result) exit(0);
-exit(cmd);
+//exit(cmd);
