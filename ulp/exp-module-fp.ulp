@@ -2,22 +2,6 @@
         "Usage: RUN exp-module-fp.ulp"
         "<author>Author: agwn</author>"
 
-// procedure
-// 1. get eagle files for module
-// 2. turn into a project by creating an eagle.epf file in the dir (empty is ok)
-// 3. add the attribute 'EXP2MODFP' to all headers that should be "exported to the module footprint"
-// 4. add the attribute 'EXP2MODMECMNT' to all mechanical mounting points to exported
-// 5. open the project and run this script on the board. the script will create a module_fp.scr
-// 6. open a library to import the module footprint into
-// 7. create a new footprint for the module
-// 8. source the exported script 'scr module_fp' or just 'scr' and search for it
-// 9. cleanup the import to remove things like random text on layers
-// 10. optional: create a new symbol with the same (or less) pins than were exported
-// 11. open an existing device or create a new one and using symbol for the module
-// 12. add the footprint to the device, connect the pins and save the library
-// 13. use the new module as a device in a new pcb! :)
-
-
 // Definitions:
 
 real    GridDist = 50.0;
@@ -28,7 +12,7 @@ int     show_script = 1;
 int     Result;
 string  Status = "";
 
-// flags for layer information to be exported
+
 int exp_Dimension = 1;
 int exp_tPlace = 1;
 int exp_bPlace = 1;
@@ -36,13 +20,16 @@ int exp_tDocu = 0;
 int exp_bDocu = 0;
 int exp_Holes = 1;
 
+int oneMil = 3200; // 1mil EAGLE stores all size values as int values with a resolution of 1/320000mm (0.003125µ).
+// flags for layer information to be exported
+int outlineWidth = 8;
 
 // Statements:
 
 // get project path, if in board or schematic, otherwise library path
 string get_project_path()
 {
-  string s = "", p = "";;
+  string s = "", p = "";
   if (library)  { library(L)  s = L.name;}
   if (board)    { board(B)     s = B.name;}
   if (schematic){ schematic(S) s = S.name;}
@@ -52,6 +39,20 @@ string get_project_path()
     p = strsub(s, 0, pos + 1);
   }
   return p;
+}
+
+string add_comment(string s) {
+  string c = "";
+  sprintf(c, "# %s\n",s);
+  
+  return c;
+}
+
+string add_command(string s) {
+  string c = "";
+  sprintf(c, "%s\n",s);
+  
+  return c;
 }
 
 real u2unit(int u)
@@ -111,7 +112,7 @@ void Move(int Layer)
 
 void export_brd_outline (void)
 {
-  cmd += "# BEGIN: export of board outline\n";
+  cmd += add_comment("BEGIN: export of board outline");
   // TODO: get the curves right, remove diagonal hack
   if (exp_Dimension) {
     board(B) {
@@ -119,28 +120,71 @@ void export_brd_outline (void)
       // set wire bend to straight lines HACK!
       cmd += "SET WIRE_BEND 2\n";
 
-      B.wires(W) {
-        if (W.layer == LAYER_DIMENSION) {
-          h = "";
-          sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
-              W.layer, u2unit(W.width));
-          cmd += h;
-          h = "";
-          sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
-              u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
-          cmd += h;
+      // TODO: extract arcs 
+
+      if (exp_tPlace) {
+        cmd += add_comment("START: board outline top");
+        B.wires(W) {
+          if (W.layer == LAYER_DIMENSION) {
+            h = "";
+            sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
+                LAYER_TPLACE, u2unit(outlineWidth*oneMil));
+            cmd += h;
+            if (W.arc) {
+              h = "";
+              //sprintf(h, "ARC CCW (%3.3f %3.3f) (%3.3f %3.3f) (%3.3f %3.3f)\n",
+              //    u2unit(W.arc.x1), u2unit(W.arc.y1), u2unit(W.arc.x2), u2unit(W.arc.y2), u2unit(W.arc.xc), u2unit(W.arc.yc));
+              sprintf(h, "WIRE (%3.3f %3.3f) @+%3.3f (%3.3f %3.3f)\n",
+                  u2unit(W.arc.x1), u2unit(W.arc.y1), u2unit(W.arc.radius), u2unit(W.arc.x2), u2unit(W.arc.y2));
+              //cmd += add_comment(h);
+              cmd += h;
+            } else {
+              h = "";
+              sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
+                  u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
+              cmd += h;
+            }
+          }
         }
+        cmd += add_comment("END: board outline top");
+      }
+
+      if (exp_bPlace) {
+        cmd += add_comment("START: board outline bottom");
+        B.wires(W) {
+          if (W.layer == LAYER_DIMENSION) {
+            h = "";
+            sprintf(h, "CHANGE LAYER %d\nCHANGE WIDTH %3.2f\n",
+                LAYER_BPLACE, u2unit(outlineWidth*oneMil));
+            cmd += h;
+            if (W.arc) {
+              h = "";
+              //sprintf(h, "ARC CCW (%3.3f %3.3f) (%3.3f %3.3f) (%3.3f %3.3f)\n",
+              //    u2unit(W.arc.x1), u2unit(W.arc.y1), u2unit(W.arc.x2), u2unit(W.arc.y2), u2unit(W.arc.xc), u2unit(W.arc.yc));
+              sprintf(h, "WIRE (%3.3f %3.3f) @+%3.3f (%3.3f %3.3f)\n",
+                  u2unit(W.arc.x1), u2unit(W.arc.y1), u2unit(W.arc.radius), u2unit(W.arc.x2), u2unit(W.arc.y2));
+              //cmd += add_comment(h);
+              cmd += h;
+            } else {
+              h = "";
+              sprintf(h, "WIRE (%3.3f %3.3f) (%3.3f %3.3f)\n",
+                  u2unit(W.x1), u2unit(W.y1), u2unit(W.x2), u2unit(W.y2));
+              cmd += h;
+            }
+          }
+        }
+        cmd += add_comment("END: brd outline bottom");
       }
     }
   }
-  cmd += "# END: export of board outline\n\n";
+  cmd += add_comment("END: export of board outline\n");
 }
 
 
 
 void export_brd_labels(void)
 {
-  cmd += "# BEGIN: export of labels\n";
+  cmd += add_comment("BEGIN: export of labels");
   board(B) {
     B.texts(T) {
       // labeling on the standard (Place) layers
@@ -195,14 +239,14 @@ void export_brd_labels(void)
       }
     }
   }
-  cmd += "# END: export of labels\n\n";
+  cmd += add_comment("END: export of labels\n");
 }
 
 
 
 void export_brd_components(void)
 {
-  cmd += "# BEGIN: export of components\n";
+  cmd += add_comment("BEGIN: export of components");
   board(B) {
     B.elements(E) {
       // can sperate out these later if wanted
@@ -247,13 +291,13 @@ void export_brd_components(void)
       }
     }
   }
-  cmd += "# END: export of components\n\n";
+  cmd += add_comment("END: export of components\n");
 }
 
 
 void export_brd_holes(void)
 {
-  cmd += "# BEGIN: export of other drill holes\n";
+  cmd += add_comment("BEGIN: export of other drill holes");
   if (exp_Holes) {
     board(B) {
       B.holes(H) {
@@ -264,13 +308,13 @@ void export_brd_holes(void)
       }
     }
   }
-  cmd += "# END: export of other drill holes\n\n";
+  cmd += add_comment("END: export of other drill holes\n");
 }
 
 
 void Export_to_File (void)
 {
-  cmd += "# config\n";
+  cmd += add_comment("config");
   // set import units to be the same as the export units
   if (unit == unitMIL)
     cmd += "GRID MIL\n";
@@ -302,7 +346,7 @@ void Export_to_File (void)
     export_brd_holes();
   }
 
-  cmd += "# cleanup\n";
+  cmd += add_comment("cleanup");
   cmd += "GRID LAST\n";
 }
 
