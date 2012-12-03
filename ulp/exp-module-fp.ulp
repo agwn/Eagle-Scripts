@@ -20,7 +20,11 @@ int exp_tDocu = 0;
 int exp_bDocu = 0;
 int exp_Holes = 1;
 
-int oneMil = 3200; // 1mil EAGLE stores all size values as int values with a resolution of 1/320000mm (0.003125µ).
+// in Eagle 5, oneMil should be 100
+// in Eagle 6, the resolution increased by 32, so oneMil should be 3200
+int oneMil = 3200;
+if ( EAGLE_VERSION < 6 ) { oneMil = 100; }
+//int oneMil = 100; // 1mil EAGLE stores all size values as int values with a resolution of 1/320000mm (0.003125µ).
 // flags for layer information to be exported
 int outlineWidth = 8;
 
